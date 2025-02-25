@@ -1,0 +1,107 @@
+<!-- vim: sw=2 ts=2 expandtab smartindent ft=javascript
+-->
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <title>three.js webgl - additive animation - skinning</title>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, user-scalable=no, minimum-scale=1.0, maximum-scale=1.0">
+  </head>
+  <body>
+    <div id="container"></div>
+
+    <script type="importmap">
+      {
+        "imports": {
+          "three": "https://cdn.jsdelivr.net/npm/three@0.173.0/build/three.module.js",
+          "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.173.0/examples/jsm/"
+        }
+      }
+    </script>
+
+    <script type="module">
+
+      import * as THREE from 'three';
+      import { FBXLoader } from 'three/addons/loaders/FBXLoader.js';
+
+      const loader = new FBXLoader();
+      loader.load( './Walking.fbx', function ( model ) {
+
+        const skeleton = new THREE.SkeletonHelper( model );
+
+        const anim = model.animations[0];
+
+        /* look at animation and find fps */
+        let fps, anim_times;
+        {
+            anim_times = new Set();
+
+            for (const track of anim.tracks) {
+                for (const time of track.times) {
+                    anim_times.add(time);
+                }
+            }
+
+            console.assert(anim_times.has(0), 'expected 0 to be timestamp present in animation');
+            console.assert(anim_times.has(anim.duration), `expected ${anim.duration} to be timestamp present in animation`);
+            anim_times.delete(anim.duration);
+
+            fps = anim_times.size / anim.duration;
+        }
+
+
+        /* look at skeleton and find connections, joint positions */
+        const connections = [];
+        {
+            const walk_bones = (parent, bone) => {
+                if (parent && bone) connections.push([parent.name, bone.name]);
+                
+                for (const child of bone.children) {
+                    walk_bones(bone, child);
+                }
+            }
+            walk_bones(null, model.children.find(x => x.isBone));
+        }
+
+        /* extract each frame of the animation */
+        const frames = [];
+        {
+          const scale = new THREE.Matrix4();
+          scale.elements = [
+              0.01,  0.00, 0.00, 0.00,
+              0.00,  0.00, 0.01, 0.00,
+              0.00, -0.01, 0.00, 0.00,
+              0.00,  0.00, 0.00, 1.00
+          ];
+
+          const mixer = new THREE.AnimationMixer(model);
+
+          const action = mixer.clipAction(anim);
+          action.play();
+
+          let strip = ({ x, y, z }) => ({ x, y, z });
+
+          for (const time of anim_times) {
+            mixer.setTime(time);
+
+            const frame = {};
+            const bones_seen = new Set();
+            for (const bone of skeleton.bones) {
+              if (bones_seen.has(bone.ID)) continue;
+              bones_seen.add(bone.ID);
+
+              const p = strip(bone.position.clone().applyMatrix4(scale));
+              frame[bone.name] = p;
+            }
+            out.frames.push(frame);
+          }
+        }
+
+        const out = { fps, connections, frames: [] };
+        console.log(out);
+
+      } );
+    </script>
+
+  </body>
+</html>

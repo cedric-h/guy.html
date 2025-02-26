@@ -3,12 +3,273 @@
 <!DOCTYPE html>
 <html lang="en">
   <head>
-    <meta charset="utf-8">
-    <title>guy.html</title>
-    <style> document, body { margin: 0px; padding: 0px; overflow: hidden; } </style>
+    <meta charset="utf-8" />
+    <title>Canvas Demo</title>
+    <style>
+document, body { margin: 0px; padding: 0px; overflow: hidden; }
+.hud {
+    position: absolute;
+    bottom: 0px;
+    right: 0px;
+    color: white;
+    font-family: sans-serif;
+    padding: 0.3rem;
+    margin: 0;
+
+    gap: 0;
+    display: flex;
+    flex-direction: column;
+
+    a {
+      color: cyan;
+    }
+    pre {
+      width: fit-content;
+      background-color: rgb(100, 100, 100);
+    }
+
+    h4 {
+      margin-bottom: 0;
+      padding-bottom: 0;
+    }
+
+    #hud_body {
+      padding: 0.4rem;
+      background-color: rgb(80, 80, 80);
+      border: 2px solid black;
+
+      .tab_body {
+        width: 22rem;
+        height: 18rem;
+        overflow: scroll;
+
+        display: none;
+
+        border-bottom: 2px solid #333333;
+        margin-bottom: 0.35rem;
+
+        &.selected {
+          display: block;
+        }
+      }
+
+      #tab_simplify_ignored_joints {
+        .labeled_input:hover { background-color: rgb(100, 100, 100); }
+      }
+      #tab_simplify_added_connections {
+        .connection_entry:hover { background-color: rgb(100, 100, 100); }
+        .connection_entry {
+          display: flex;
+          justify-content: space-evenly;
+          align-items: center;
+          padding: 0.2rem;
+          select { width: 7.5rem; }
+        }
+      }
+    }
+
+    #hud_tabs {
+      .tab {
+        cursor: pointer;
+        background-color: rgb(80, 80, 80);
+        padding: 0.1rem 0.5rem 0.1rem 0.5rem;
+        border: 2px solid black;
+        border-radius: 0.3rem 0.3rem 0 0;
+        translate: 0 2px;
+        color: rgb(200, 200, 200);
+        &.selected {
+          color: white;
+          cursor: default;
+          border-bottom: 2px solid rgb(80, 80, 80);
+        }
+      }
+      display: flex;
+      gap: 0.3rem;
+      margin: 0;
+    }
+
+    button {
+        margin: 0.3rem;
+    }
+
+    .directional_group {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    .labeled_input {
+        display: flex;
+        justify-content: space-between;
+        gap: 0.8rem;
+        padding: 0.3rem;
+        label {
+            height: 100%;
+            margin-top: auto;
+            margin-bottom: auto;
+        }
+    }
+}
+    </style>
   </head>
+
   <body>
-    <div id="container"></div>
+    <div class="hud">
+      <div id="hud_tabs">
+          <div id="tab_intro"    class="tab selected"> intro </div>
+          <div id="tab_tweak"    class="tab"         > tweak </div>
+          <div id="tab_codegen"  class="tab"         > codegen </div>
+          <div id="tab_simplify" class="tab"         > simplify </div>
+          <div id="tab_options" class="tab"         > misc </div>
+      </div>
+      <div id="hud_body">
+
+        <div id="tab_intro_body" class="tab_body selected">
+          <h3> TLDR </h3>
+
+          <h4> give animation → get line array </h4>
+          <p> Drop an animation (e.g. an .fbx from <a href="https://www.mixamo.com/#/">mixamo</a>) onto this tool,
+              and it turns it into an array of lines for each frame in the animation. </p>
+
+          <h4> draw lines → get stickman </h4>
+          <p> The "codegen" tab has an array literal in your language; there are also integration examples
+              demonstrating how to use these arrays to create the basic "stickman renderer" in a language/graphics backend of your choosing.</p>
+
+          <h3> why? </h3>
+
+          <h4> prototyping/custom engines </h4>
+          <p> This is useful for game jams and rapidly prototyping games before you know exactly what you want your character to feel like;
+              head size, torso:leg ratios, etc. are parameterized, so you can get a
+              feel for the
+              <a href="https://www.kongregate.com/pages/design-tips-for-in-game-character-proportions">
+                proportions</a> you want your character to have. (see the "tweak" tab)
+          </p>
+
+          <p> This is especially true if you're making a custom engine for your game, and you haven't spent the time to make a skeletal
+              animation system yet. </p>
+
+          <h4> why? stickman games! flash homages </h4>
+
+          <p> Stickmen are endearing and low lift. If you can pull off the aesthetic, you don't need to do a ton of work,
+              especially if you can just drop in mixamo animations.
+              You can make up for the lack of graphical fidelity with cool procedural animations. (dismemberment, ragdolls, etc.)</p>
+
+          <h4> why? procedural animations </h4>
+
+          <p> Even if you've got full skeletal animations in Unity/Unreal, you may want to run procedural animations
+              (person-shaped singe marks on the ground, ragdolls, etc.) on a simplified version of your skeleton - you might
+              use this tool to quickly check what parts of your skeleton are worth keeping. </p>
+
+        </div id="tab_intro_body">
+
+        <div id="tab_tweak_body" class="tab_body">
+          <div class="labeled_input">
+            <label for="hud_leg_to_torso">leg to torso ratio</label>
+            <input  id="hud_leg_to_torso" min="0.01" step="0.01" type="number" value="0.68"></input>
+          </div>
+          <div class="labeled_input">
+            <label for="hud_line_width">line width</label>
+            <input  id="hud_line_width" min="0.01" step="0.01" type="number" value="1"></input>
+          </div>
+          <div class="labeled_input">
+            <label for="hud_char_height">character height</label>
+            <input  id="hud_char_height" min="0.01" step="0.01" type="number" value="1"></input>
+          </div>
+          <div class="labeled_input">
+            <label for="hud_char_width">character width</label>
+            <input  id="hud_char_width" min="0.01" step="0.01" type="number" value="1"></input>
+          </div>
+          <div class="labeled_input">
+            <label for="hud_head_size">head size</label>
+            <input  id="hud_head_size" min="0.01" step="0.01" type="number" value="1"></input>
+          </div>
+        </div>
+
+        <div id="tab_codegen_body" class="tab_body">
+          <div style="display:flex;justify-content:space-evenly;padding: 0.3rem 0rem;">
+            <label for="codegen_joint_prefix_from">joint prefix replace</label>
+            <input style="width:5rem;" id="codegen_joint_prefix_from" type="text"></input>
+            →
+            <input style="width:5rem;" id="codegen_joint_prefix_to" type="text"></input>
+          </div>
+          <div class="labeled_input">
+            <label for="codegen_flavor"> codegen output </label>
+            <select id="codegen_flavor">
+               <option> json </option>
+               <option> C </option>
+               <!-- <option> lua </option> -->
+               <!-- <option> zig </option> -->
+               <!-- <option> swift </option> -->
+               <!-- <option> odin </option> -->
+               <!-- <option> jai </option> -->
+            </select>
+          </div>
+          <div id="codegen_flavor_specific_settings"></div>
+          <div>
+            <button id="codegen_copy" title="copy codegen output" style="position:absolute;right:0.5rem;">📋</button>
+            <pre id="codegen_out"></pre>
+          </div>
+        </div id="tab_codegen_body">
+
+        <div id="tab_simplify_body" class="tab_body">
+          <p> Animations from e.g. mixamo have many more joints than a simple stickman needs,
+              so we hide most of them and then add back a couple connections so he doesn't have big ole holes in him. </p>
+
+          <p> If you hover over a joint on the canvas (it helps to pause the animation first), you can see what its name will be below. </p>
+
+          <h3> added connections </h3>
+          <div id="tab_simplify_added_connections"></div>
+          <h3> ignored joints </h3>
+          <div id="tab_simplify_ignored_joints"></div>
+        </div id="tab_simplify_body">
+
+        <div id="tab_options_body" class="tab_body">
+          <button id="options_reset_to_default"> reset everything to defaults </button>
+          <p> The following blender export script gives you a JSON you can drag and drop onto this tool. </p>
+          <pre># blender export script
+import bpy
+import json     
+
+def write_bone_positions(armature, output_file=None):
+    frames = []
+    bone_connections = []
+
+    if armature.type != 'ARMATURE':
+    print("Error: Selected object is not an armature.")
+      return
+
+    for bone in armature.pose.bones:
+    if len(bone.children) > 0:
+    for child_bone in bone.children:
+    bone_connections.append([bone.name, child_bone.name])
+
+    start_frame = bpy.context.scene.frame_start
+    end_frame = bpy.context.scene.frame_end
+    for frame in range(start_frame, end_frame):
+    bpy.context.scene.frame_set(frame)
+
+    bone_poses = {}
+
+    for bone in armature.pose.bones:
+        # Get the location of the bone in world space
+        p = armature.matrix_world @ bone.head
+        bone_poses[str(bone.name)] = { 'x': p.x, 'y': p.y, 'z': p.z }
+
+        frames.append(bone_poses)
+
+     with open("./bone_frames.json", "w+") as fp:
+         json.dump({ 'frames': frames, 'connections': bone_connections }, fp)
+
+write_bone_positions(bpy.context.object)</pre>
+        </div id="tab_options_body">
+
+        <div class="directional_group">
+          <button id="scrubber_prev">⬅️  prev frame</button>
+          <button id="scrubber_playpause">⏸️</span>
+          <button id="scrubber_next">next frame ➡️ </button>
+        </div>
+      </div>
+    </div>
 
     <script type="importmap">
       {
@@ -19,15 +280,38 @@
       }
     </script>
 
-    <script type="module">
+    <canvas id="glcanvas"></canvas>
+    <script type="module">"use strict";
 
 import * as THREE from 'three';
 import { FBXLoader } from 'three/addons/loaders/FBXLoader.js';
 
-const fbx = fetch("./Walking.fbx").then(x => x.arrayBuffer());
+fetch("Hip Hop Dancing.fbx")
+  .then(x => x.arrayBuffer())
+  .then(bytes => {
+    anim_data = fbx_to_lines(bytes)
+    tweak_ui.render_ui();
+  });
 
-fbx.then(bytes => {
-  const model = new FBXLoader().parse(bytes);
+window.ondragover = ev => ev.preventDefault();
+window.ondrop = async ev => {
+  console.log(ev);
+  /* or we could NOT open this in a second tab ... */
+  ev.preventDefault();
+
+  const items = ev.dataTransfer.items;
+  for (const item of items) {
+    const dir = await item.getAsFileSystemHandle();
+    if (dir.kind != 'file' || !dir.name.endsWith(".fbx")) continue;
+    anim_data = fbx_to_lines(await dir.getFile().then(x => x.arrayBuffer()))
+    console.log(anim_data);
+    tweak_ui.render_ui();
+    break;
+  }
+};
+
+function fbx_to_lines(fbx) {
+  const model = new FBXLoader().parse(fbx);
 
   const skeleton = new THREE.SkeletonHelper(model);
 
@@ -103,18 +387,733 @@ fbx.then(bytes => {
         if (bones_seen.has(bone.ID)) continue;
         bones_seen.add(bone.ID);
 
-        const p = strip(bone.position.clone().applyMatrix4(scale));
-        frame[bone.name] = p;
+        const p = bone.position.clone();
+        bone.getWorldPosition(p);
+        frame[bone.name] = strip(p.applyMatrix4(scale));
       }
       frames.push(frame);
     }
   }
 
-  const out = { fps, duration: anim.duration, connections, frames };
-  console.log(out);
+  return { fps, duration: anim.duration, connections, frames };
+};
 
-});
+const ANIMATION_FPS = 24;
+let anim_data = null;
+
+const tweak_ui = new (class TweakUI {
+  static LOCALSTORAGE_KEY = "guy_tweak_ui";
+
+  static default_save() {
+    return {
+      active_tab: 'intro',
+      codegen_flavor: 'json',
+      codegen_c_prefix: 'animdata_',
+      codegen_joint_prefix_from: 'mixamorig:',
+      codegen_joint_prefix_to  : '',
+
+      ignored_joints: [
+        "mixamorigSpine", "mixamorigSpine1", "mixamorigSpine2", "mixamorigHeadTop_End", "mixamorigRightShoulder",
+        "mixamorigRightHandThumb1", "mixamorigRightHandThumb2", "mixamorigRightHandThumb3", "mixamorigRightHandThumb4",
+        "mixamorigRightHandIndex1", "mixamorigRightHandIndex2", "mixamorigRightHandIndex3", "mixamorigRightHandIndex4",
+        "mixamorigRightHandMiddle1", "mixamorigRightHandMiddle2", "mixamorigRightHandMiddle3", "mixamorigRightHandMiddle4",
+        "mixamorigRightHandRing1", "mixamorigRightHandRing2", "mixamorigRightHandRing3", "mixamorigRightHandRing4",
+        "mixamorigRightHandPinky1", "mixamorigRightHandPinky2", "mixamorigRightHandPinky3", "mixamorigRightHandPinky4",
+        "mixamorigLeftShoulder", "mixamorigLeftHandThumb1", "mixamorigLeftHandThumb2", "mixamorigLeftHandThumb3",
+        "mixamorigLeftHandThumb4", "mixamorigLeftHandIndex1", "mixamorigLeftHandIndex2", "mixamorigLeftHandIndex3",
+        "mixamorigLeftHandIndex4", "mixamorigLeftHandMiddle1", "mixamorigLeftHandMiddle2", "mixamorigLeftHandMiddle3",
+        "mixamorigLeftHandMiddle4", "mixamorigLeftHandRing1", "mixamorigLeftHandRing2", "mixamorigLeftHandRing3",
+        "mixamorigLeftHandRing4", "mixamorigLeftHandPinky1", "mixamorigLeftHandPinky2", "mixamorigLeftHandPinky3",
+        "mixamorigLeftHandPinky4", "mixamorigRightUpLeg", "mixamorigRightFoot", "mixamorigLeftUpLeg", "mixamorigLeftFoot"
+      ],
+
+      added_connections: [
+        ["mixamorigRightLeg", "mixamorigRightToeBase"],
+        ["mixamorigLeftLeg",  "mixamorigLeftToeBase" ],
+        ["mixamorigNeck",     "mixamorigRightArm"    ],
+        ["mixamorigNeck",     "mixamorigLeftArm"     ],
+        ["mixamorigHips",     "mixamorigRightLeg"    ],
+        ["mixamorigHips",     "mixamorigLeftLeg"     ],
+        ["mixamorigHips",     "mixamorigNeck"        ]
+      ],
+
+      playing: true,
+      animation_elapsed: 0,
+
+      leg_torso_ratio: 2.2,
+      line_width:      1.5,
+      char_height:     1,
+      char_width:      1,
+      head_size:       1,
+    };
+  }
+  static get_save() {
+    const fallback = TweakUI.default_save;
+
+    let stored = window.localStorage.getItem(TweakUI.LOCALSTORAGE_KEY);
+    if (stored) {
+      stored = JSON.parse(stored);
+      stored = Object.assign(fallback(), stored);
+      return stored;
+    }
+
+    return fallback();
+  }
+  do_save() {
+    window.localStorage.setItem(TweakUI.LOCALSTORAGE_KEY, JSON.stringify(this.save));
+  }
+
+  render_ui() {
+    const save = this.save;
+
+    const extract_float = (value) => {
+        value = parseFloat(value);
+        if (isNaN(value)) return 0;
+        return value;
+    }
+
+    /* scrubber */
+    {
+      window.onkeydown = e => {
+        if (e.key == " ") scrubber_playpause.click();
+      }
+
+      scrubber_playpause.textContent = save.playing ? "⏸️" : "▶️";
+      scrubber_playpause.onclick = () => {
+        save.playing ^= 1;
+        scrubber_playpause.textContent = save.playing ? "⏸️" : "▶️";
+        this.do_save();
+      }
+      const change_offset = delta => {
+        const seconds_per_frame = 1 / ANIMATION_FPS;
+
+        save.animation_elapsed = Math.round(save.animation_elapsed / seconds_per_frame) * seconds_per_frame;
+        save.animation_elapsed += delta * seconds_per_frame;
+        while (save.animation_elapsed < 0)
+          save.animation_elapsed = seconds_per_frame * anim_data.frames.length - save.animation_elapsed;
+
+        this.do_save();
+      }
+      scrubber_next.onclick = () => change_offset( 1);
+      scrubber_prev.onclick = () => change_offset(-1);
+    }
+
+    /* float inputs */
+    for (const [el, field] of [
+       [hud_leg_to_torso,  'leg_torso_ratio' ],
+       [hud_line_width,    'line_width'      ],
+       [hud_head_size,     'head_size'       ],
+       [hud_char_height,   'char_height'     ],
+       [hud_char_width,    'char_width'      ],
+    ]) {
+      el.value = save[field];
+      el.oninput = () => {
+        save[field] = extract_float(el.value);
+        this.do_save();
+      }
+    }
+
+    const that = this;
+    function render_simplify_tab() {
+      tab_simplify_added_connections.innerHTML = '';
+      tab_simplify_ignored_joints.innerHTML = '';
+
+      for (const [idx, joint] of Object.entries(Object.keys(anim_data.frames[0]))) {
+        const div = document.createElement('div');
+        div.className = 'labeled_input';
+
+        div.onmouseover = () => that.hovered_joint = joint;
+        div.onmouseleave = () => that.hovered_joint = null;
+
+        const input = document.createElement('input');
+        input.type = 'checkbox';
+        input.checked = save.ignored_joints.includes(joint);
+        input.id = 'tab_simplify_hidden_joint' + idx;
+        input.onclick = () => {
+          const ignored = new Set(save.ignored_joints);
+          if (input.checked) ignored.add(joint);
+          else               ignored.delete(joint);
+          save.ignored_joints = [...ignored];
+        }
+
+        const label = document.createElement('label');
+        label.style.fontFamily = 'monospace';
+        label.textContent = joint;
+        label.for = input.id;
+        div.append(label, input);
+
+        tab_simplify_ignored_joints.appendChild(div);
+      }
+
+      /* list all added connections */
+      for (const conn of save.added_connections) {
+        const [from, to] = conn;
+
+        const div = document.createElement('div');
+        div.className = 'connection_entry';
+
+        div.onmouseover = () => that.hovered_connection = conn;
+        div.onmouseleave = () => that.hovered_connection = null;
+
+        const from_select = document.createElement('select');
+        const to_select = document.createElement('select');
+        for (const k in anim_data.frames[0]) if (!save.ignored_joints.includes(k)) {
+          for (const select of [from_select, to_select]) {
+            const o = document.createElement('option');
+            o.textContent = k;
+            o.value = k;
+            select.append(o);
+          }
+        }
+        from_select.value = from;
+        to_select.value = to;
+
+        from_select.oninput = () => {
+          conn[0] = from_select.value;
+          that.do_save();
+        }
+        to_select.oninput = () => {
+          conn[1] = to_select.value;
+          that.do_save();
+        }
+
+        const arrow = document.createElement('span');
+        arrow.textContent = '→';
+
+        const remove = document.createElement('button');
+        remove.textContent = '🗑️';
+        remove.onclick = () => {
+          save.added_connections.splice(save.added_connections.indexOf(conn), 1);
+          that.do_save();
+          render_simplify_tab();
+        }
+
+        div.append(from_select, arrow, to_select, remove);
+        tab_simplify_added_connections.appendChild(div);
+      }
+
+      /* button to add new connections */
+      {
+        const new_connection = document.createElement('button');
+        new_connection.style.width = '96%';
+        new_connection.textContent = 'add new connection';
+        new_connection.onclick = () => {
+          const all_keys = Object.keys(anim_data.frames[0]);
+          const good_keys = all_keys.filter(x => !save.ignored_joints.includes(x));
+          save.added_connections.push([good_keys[0] ?? all_keys[0], good_keys[1] ?? all_keys[1]]);
+          render_simplify_tab();
+        }
+        tab_simplify_added_connections.appendChild(new_connection);
+      }
+    }
+
+    function render_codegen_tab() {
+      const ignored = k => save.ignored_joints.includes(k);
+      const flavor = save.codegen_flavor;
+
+      codegen_joint_prefix_from.value = save.codegen_joint_prefix_from;
+      codegen_joint_prefix_to  .value = save.codegen_joint_prefix_to  ;
+      const apply_replace = key => key.replace(codegen_joint_prefix_from.value, codegen_joint_prefix_to.value);
+
+      codegen_out.textContent = '...';
+      codegen_flavor_specific_settings.innerHTML = '';
+
+      const connections = [...save.added_connections, ...anim_data.connections]
+        .filter(([l, r]) => !ignored(l) && !ignored(r))
+        .map(([l, r]) => [apply_replace(l), apply_replace(r)]);
+      const frames = anim_data.frames.map(f => Object.fromEntries(
+        Object
+          .entries(f)
+          .filter(([k, v]) => !ignored(k))
+          .map(([k, v]) => [apply_replace(k), v])
+      ));
+
+      if (flavor == 'json')
+        codegen_out.textContent = JSON.stringify({ fps: 24, connections, frames }, null, 2);
+      if (flavor == 'C') {
+
+        /* add prefix input */
+        {
+          const label = document.createElement('label');
+          const input = document.createElement('input');
+          input.id = label.for = 'codegen_c_prefix_input';
+          input.type = 'text';
+          input.style.fontFamily = 'monospace';
+          input.value = save.codegen_c_prefix;
+          label.textContent = 'prefix';
+
+          const div = document.createElement('div');
+          div.className = 'labeled_input';
+          div.append(label, input);
+          codegen_flavor_specific_settings.append(div);
+
+          input.oninput = () => {
+            save.codegen_c_prefix = input.value;
+            this.do_save();
+            render_codegen_tab();
+          }
+        }
+
+        const prefix = save.codegen_c_prefix;
+        let out = '';
+        out += `typedef enum ${prefix}JointKey {\n`;
+        for (const key in frames[0]) out += `  ${prefix}JointKey_${key},\n`;
+        out += `  ${prefix}JointKey_COUNT\n`;
+        out += `} ${prefix}JointKey_t;\n`;
+
+        out += '\n';
+
+        out += `struct { ${prefix}JointKey_t from, to; } ${prefix}limb_connections[] = {\n`;
+        const longest_joint_name_len = Object.keys(frames[0]).reduce((a, x) => Math.max(a, x.length), 0);
+        for (const [from, to] of connections) {
+          let from_clause = `${prefix}JointKey_${from},`;
+          let to_clause = `${prefix}JointKey_${to}`;
+
+          from_clause = from_clause.padEnd(`${prefix}JointKey_,`.length + longest_joint_name_len);
+            to_clause =   to_clause.padEnd(`${prefix}JointKey_` .length + longest_joint_name_len);
+
+          out += `  { .from = ${from_clause} .to = ${to_clause} },\n`;
+        }
+        out += '};\n';
+
+        out += '\n';
+
+        out += `struct { struct { float x, y, z; } joint_pos[${prefix}JointKey_COUNT]; } ${prefix}frames[] = {\n`;
+        for (const frame of frames) {
+          out += '  { .joint_pos = { \n';
+          for (const key in frame) {
+            const { x, y, z } = frame[key];
+            let key_clause = `${prefix}JointKey_${key}`;
+            key_clause = key_clause.padEnd(`${prefix}JointKey_`.length + longest_joint_name_len);
+            out += `    [${key_clause}] = { ${x}, ${y}, ${z} },\n`
+          }
+          out += '  }},\n';
+        }
+        out += `};`;
+
+        codegen_out.textContent = out;
+      }
+
+      codegen_flavor.value = save.codegen_flavor;
+      codegen_flavor.onchange = () => {
+        save.codegen_flavor = codegen_flavor.value;
+        that.do_save();
+        render_codegen_tab();
+      }
+
+      codegen_copy.onclick = () => {
+        codegen_copy.textContent = '✅';
+        setTimeout(() => codegen_copy.textContent = '📋', 250);
+        navigator.clipboard.writeText(codegen_out.textContent);
+      }
+    }
+
+    /* because i need the anim_data global variable in those functions lol */
+    render_simplify_tab();
+    render_codegen_tab();
+
+    options_reset_to_default.onclick = () => (localStorage.clear(), location.reload());
+
+    const tabs = {
+      intro:    [tab_intro,    tab_intro_body   ],
+      tweak:    [tab_tweak,    tab_tweak_body   ],
+      codegen:  [tab_codegen,  tab_codegen_body ],
+      simplify: [tab_simplify, tab_simplify_body],
+      options:  [tab_options,  tab_options_body ]
+    };
+    for (const [key, [tab, body]] of Object.entries(tabs)) {
+      tab.onclick = () => {
+        for (const [key, body] of Object.values(tabs)) {
+          key.classList.remove("selected");
+          body.classList.remove("selected");
+        }
+
+        tab .classList.add("selected");
+        body.classList.add("selected");
+
+        save.active_tab = key;
+        this.do_save();
+      }
+    }
+    tabs[save.active_tab][0].click();
+  }
+
+  constructor() {
+    this.hovered_joint = null;
+    this.hovered_connection = null;
+
+    const save = this.save = TweakUI.get_save();
+
+  }
+})();
+
+let input = {
+  zoom:   4.5,
+  scroll: 0,
+
+  pitch:  Math.PI*1.40,
+  yaw:   -Math.PI*0.09,
+
+  eye: new DOMPoint(0, 0, 0.7, 1),
+  cam_pivot: new DOMPoint(0, 0, 0.7, 1),
+
+  dist_to_cam(pt) {
+    const dx = pt.x - (this.eye.x + this.cam_pivot.x);
+    const dy = pt.y - (this.eye.y + this.cam_pivot.y);
+    const dz = pt.z - (this.eye.z + this.cam_pivot.z);
+    return Math.sqrt(dx*dx + dy*dy + dz*dz);
+  },
+
+  dampedEvent: { button: 0, movementX: 0, movementY: 0 },
+
+  lmb_down: false,
+  rmb_down: false,
+  mouse_x:  0,
+  mouse_y:  0,
+};
+
+/* mouse controls */
+{
+    const opts = { passive: false };
+
+    glcanvas.addEventListener('wheel', e => {
+      e.preventDefault();
+
+      if (input.mouse_down) return;
+      input.scroll += e.deltaY;
+    }, opts);
+    glcanvas.addEventListener('mousedown', ev => {
+      ev.preventDefault();
+
+      input.dampedEvent.button = ev.button ? 2 : 0;
+
+      if (ev.button == 0) input.lmb_down = true;
+      if (ev.button == 2) input.rmb_down = true;
+    }, opts);
+    window.addEventListener('mousemove', ev => {
+      if (ev.target == glcanvas)
+        ev.preventDefault();
+
+      if (input.lmb_down || input.rmb_down) {
+          input.dampedEvent.movementX += ev.movementX;
+          input.dampedEvent.movementY += ev.movementY;
+      }
+
+      input.mouse_x = ev.offsetX*window.devicePixelRatio;
+      input.mouse_y = ev.offsetY*window.devicePixelRatio;
+    }, opts);
+    glcanvas.addEventListener("contextmenu", ev => {
+      ev.preventDefault();
+    }, opts);
+    window.addEventListener('mouseup', ev => {
+      if (ev.target == glcanvas)
+        ev.preventDefault();
+
+      if (ev.button == 0) input.lmb_down = false;
+      if (ev.button == 2) input.rmb_down = false;
+    }, opts);
+}
+
+/* touch controls */
+{
+    const opts = { passive: false };
+
+    let touch_x = 0;
+    let touch_y = 0;
+    window.addEventListener("touchstart", ev => {
+        ev.preventDefault();
+
+        touch_x = ev.changedTouches[0].clientX;
+        touch_y = ev.changedTouches[0].clientY;
+
+        input.lmb_down = true;
+    }, opts);
+
+    window.addEventListener("touchmove", ev => {
+        ev.preventDefault();
+        input.dampedEvent.button = 0;
+
+        input.dampedEvent.movementX += ev.changedTouches[0].clientX - touch_x;
+        input.dampedEvent.movementY += ev.changedTouches[0].clientY - touch_y;
+
+        touch_x = ev.changedTouches[0].clientX;
+        touch_y = ev.changedTouches[0].clientY;
+    }, opts);
+
+    window.addEventListener("touchend", ev => {
+        ev.preventDefault();
+
+        input.lmb_down = false;
+    }, opts);
+}
+
+const canvas = document.getElementById("glcanvas");
+const ctx = canvas.getContext('2d');
+(window.onresize = () => {
+   canvas.width = window.innerWidth*window.devicePixelRatio,
+   canvas.height = window.innerHeight*window.devicePixelRatio
+   canvas.style.width = window.innerWidth + 'px';
+   canvas.style.height = window.innerHeight + 'px';
+ })();
+
+let last_timestamp;
+requestAnimationFrame(function render(timestamp) {
+  requestAnimationFrame(render);
+
+  timestamp *= 0.001;
+  last_timestamp ??= timestamp;
+  const delta_time = timestamp - last_timestamp;
+  last_timestamp = timestamp;
+
+  /* controls */
+  {
+    const ev = input.dampedEvent;
+
+    /* based on the assumption that if you're zoomed in more,
+     * you're doing finer-detailed work and want more precise movements. */
+    const zoom_fudge = Math.sqrt(input.zoom/10.0)*2.0;
+
+    if (ev.button == 0) {
+      input.pitch -= ev.movementX * 0.0005 * zoom_fudge;
+      input.yaw   -= ev.movementY * 0.0005 * zoom_fudge;
+      input.yaw = Math.max(-Math.PI*0.5 + 0.01, Math.min(Math.PI*0.5 - 0.01, input.yaw));
+    }
+    if (ev.button == 2) {
+      const unit = new DOMPoint(0, -ev.movementX*0.00075*zoom_fudge, ev.movementY*0.00075*zoom_fudge, 1)
+        .matrixTransform(new DOMMatrix().rotateSelf(0, input.yaw / Math.PI * 180, input.pitch / Math.PI * 180));
+
+      input.cam_pivot.x += unit.x;
+      input.cam_pivot.y += unit.y;
+      input.cam_pivot.z += unit.z;
+    }
+
+    ev.movementX *= Math.pow(1 - 0.17, 60*delta_time);
+    ev.movementY *= Math.pow(1 - 0.17, 60*delta_time);
+
+    {
+      const t = Math.cbrt(Math.abs(input.scroll)) * Math.sign(input.scroll);
+
+      input.zoom += 0.005*t*input.zoom;
+      input.scroll *= Math.pow(1 - 0.5, 60*delta_time);
+      input.zoom = Math.min(200, input.zoom);
+      input.zoom = Math.max(  3, input.zoom);
+    }
+  }
+
+  /* camera matrix construction */
+  let mvp;
+  {
+    const FIELD_OF_VIEW = 50 / 180 * Math.PI;
+    const ar = window.innerWidth / window.innerHeight;
+    const projection = mat4_perspective(new DOMMatrix(), FIELD_OF_VIEW, ar, 0.01, 100.0);
+
+    const view = new DOMMatrix().rotateSelf(0, input.yaw / Math.PI * 180, input.pitch / Math.PI * 180);
+    {
+      const eye = input.eye = new DOMPoint(input.zoom, 0, 0, 1).matrixTransform(view);
+
+      eye.x += input.cam_pivot.x;
+      eye.y += input.cam_pivot.y;
+      eye.z += input.cam_pivot.z;
+      
+      mat4_target_to(view, eye, input.cam_pivot, new DOMPoint(0, 0, 1));
+      view.invertSelf();
+    }
+
+    mvp = new DOMMatrix(projection).multiplySelf(view);
+  }
+
+  ctx.fillStyle = "white";// "rgb(30 40 50)";
+  const SECONDARY_COLOR = "black";
+  ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+  const transform = (p) => {
+    p.x *= tweak_ui.save.char_width;
+    p.y *= tweak_ui.save.char_width;
+    p.z *= tweak_ui.save.char_height;
+
+    p.w = 1;
+    p = p.matrixTransform(mvp);
+    const w = p.w;
+    p.x = (0 + (p.x/w*0.5 + 0.5))*canvas.width;
+    p.y = (1 - (p.y/w*0.5 + 0.5))*canvas.height;
+    p.z /= w;
+
+    return p;
+  }
+
+  if (anim_data) {
+    ctx.beginPath();
+
+    const seconds_per_frame = 1 / ANIMATION_FPS;
+
+    if (tweak_ui.save.playing) tweak_ui.save.animation_elapsed += delta_time;
+
+    const frames_total = tweak_ui.save.animation_elapsed / seconds_per_frame;
+    const frame_idx = Math.floor(frames_total % anim_data.frames.length);
+    const tween_t = frames_total % 1;
+    const next_idx = (frame_idx + 1) % anim_data.frames.length;
+    const frame = key => ({
+      x: lerp(anim_data.frames[frame_idx][key].x, anim_data.frames[next_idx][key].x, tween_t),
+      y: lerp(anim_data.frames[frame_idx][key].y, anim_data.frames[next_idx][key].y, tween_t),
+      z: lerp(anim_data.frames[frame_idx][key].z, anim_data.frames[next_idx][key].z, tween_t)
+    });
+
+
+    const ignore_key = key => tweak_ui.save.ignored_joints.includes(key);
+    const line_width = tweak_ui.save.line_width * window.innerHeight * 0.035 * window.devicePixelRatio;
+    const head_size = tweak_ui.save.head_size * window.innerHeight * 0.2 * window.devicePixelRatio;
+
+    // ctx.globalAlpha = 0.8;
+
+    /* draw head */
+    {
+      const world = frame("mixamorigHead");
+      const screen = transform(new DOMPoint(world.x, world.y, world.z));
+
+      ctx.beginPath();
+      const size = head_size / input.dist_to_cam(world);
+      ctx.arc(screen.x, screen.y - size*0.8, size, 0, Math.PI*2);
+      ctx.fillStyle = SECONDARY_COLOR
+      ctx.fill();
+
+      // show head size
+      // ctx.font = '50px monospace';
+      // ctx.fillText(size.toFixed(2), screen.x + size + 15, screen.y);
+    }
+
+    /* draw lines */
+    const draw_connection = (from_key, to_key) => {
+      if (ignore_key(from_key) || ignore_key(to_key)) return;
+
+      let from = frame(from_key)
+      const from_dist = input.dist_to_cam(from);
+      from = transform(new DOMPoint(from.x, from.y, from.z, 1.0));
+
+      let to = frame(to_key)
+      const to_dist = input.dist_to_cam(to);
+      to = transform(new DOMPoint(to.x, to.y, to.z, 1.0));
+
+      ctx.beginPath();
+      const color = (tweak_ui.hovered_connection                &&
+                     tweak_ui.hovered_connection[0] == from_key &&
+                     tweak_ui.hovered_connection[1] ==   to_key) ? 'red' : SECONDARY_COLOR;
+      ctx.strokeStyle = color;
+      ctx.lineWidth = line_width / lerp(from_dist, to_dist, 0.5);
+      ctx.moveTo(from.x, from.y)
+      ctx.lineTo(  to.x,   to.y)
+      ctx.stroke();
+    }
+    for (const [from_key, to_key] of           anim_data.connections) draw_connection(from_key, to_key);
+    for (const [from_key, to_key] of tweak_ui.save.added_connections) draw_connection(from_key, to_key);
+
+    /* show vertices */
+    for (const key in anim_data.frames[0]) {
+      const p = frame(key);
+      const point = new DOMPoint(p.x, p.y, p.z, 1.0);
+      const screen = transform(point);
+
+      const ui_hovered = tweak_ui.hovered_joint == key;
+      const mouse_hovered = Math.sqrt((input.mouse_x - screen.x)*(input.mouse_x - screen.x) +
+                                      (input.mouse_y - screen.y)*(input.mouse_y - screen.y)) < line_width*0.1;
+      const hovered = ui_hovered || mouse_hovered;
+
+      if (ignore_key(key) && !ui_hovered) continue;
+
+      ctx.beginPath();
+      const size = hovered ? line_width * 2 : line_width;
+      ctx.arc(screen.x, screen.y, size*0.5 / input.dist_to_cam(point), 0, Math.PI*2);
+
+      ctx.fillStyle = hovered ? "red" : SECONDARY_COLOR;
+      ctx.strokeStyle = 'red';
+      ctx.lineWidth = 2;
+
+      ignore_key(key) ? ctx.stroke() : ctx.fill();
+
+      if (hovered) {
+        ctx.font = '20px monospace';
+        ctx.textBaseline = 'middle';
+        ctx.fillText(key, 30 + screen.x, screen.y);
+      }
+    }
+
+  }
+
+  ctx.globalAlpha = 1.0;
+
+})
+
+function mat4_perspective(out, fovy, aspect, near, far) {
+    let f = 1.0 / Math.tan(fovy / 2),
+        nf;
+    out.m11 = f / aspect;
+    out.m12 = 0;
+    out.m13 = 0;
+    out.m14 = 0;
+    out.m21 = 0;
+    out.m22 = f;
+    out.m23 = 0;
+    out.m24 = 0;
+    out.m31 = 0;
+    out.m32 = 0;
+    out.m33 = 0;
+    out.m34 = -1;
+    out.m41 = 0;
+    out.m42 = 0;
+    out.m43 = 0;
+    out.m44 = 0;
+    if (far != null && far !== Infinity) {
+        nf = 1 / (near - far);
+        out.m33 = (far + near) * nf;
+        out.m43 = 2 * far * near * nf;
+    } else {
+        out.m33 = -1;
+        out.m43 = -2 * near;
+    }
+    return out;
+}
+
+function mat4_target_to(out, eye, target, up) {
+    let z0 = eye.x - target.x,
+        z1 = eye.y - target.y,
+        z2 = eye.z - target.z;
+    let len = z0 * z0 + z1 * z1 + z2 * z2;
+    if (len > 0) {
+        len = 1 / Math.sqrt(len);
+        z0 *= len;
+        z1 *= len;
+        z2 *= len;
+    }
+    let x0 = up.y * z2 - up.z * z1,
+        x1 = up.z * z0 - up.x * z2,
+        x2 = up.x * z1 - up.y * z0;
+    len = x0 * x0 + x1 * x1 + x2 * x2;
+    if (len > 0) {
+        len = 1 / Math.sqrt(len);
+        x0 *= len;
+        x1 *= len;
+        x2 *= len;
+    }
+    out.m11 = x0;
+    out.m12 = x1;
+    out.m13 = x2;
+    out.m14 = 0;
+    out.m21 = z1 * x2 - z2 * x1;
+    out.m22 = z2 * x0 - z0 * x2;
+    out.m23 = z0 * x1 - z1 * x0;
+    out.m24 = 0;
+    out.m31 = z0;
+    out.m32 = z1;
+    out.m33 = z2;
+    out.m34 = 0;
+    out.m41 = eye.x;
+    out.m42 = eye.y;
+    out.m43 = eye.z;
+    out.m44 = 1;
+    return out;
+}
+
+function lerp(v0, v1, t) { return (1 - t) * v0 + t * v1; }
+function inv_lerp(min, max, p) { return (p - min) / (max - min); }
     </script>
-
   </body>
 </html>

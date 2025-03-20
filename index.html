@@ -690,19 +690,19 @@ const tweak_ui = new (class TweakUI {
         out += '\n';
 
         out += `float ${prefix}duration = ${anim_data.duration};\n`;
-        out += `struct {`;
-        out += `\n    struct {`;
-        out += `\n        float time;`;
-        out += `\n        struct { float x, y, z; } pos;`;
-        out += `\n    } joint_pos[${prefix}JointKey_COUNT];`;
-        out += `\n} ${prefix}frames[] = {\n`;
+        out += `struct {\n`;
+        out += `    float time;\n`;
+        out += `    struct {\n`;
+        out += `        float x, y, z;\n`;
+        out += `    } joint_pos[${prefix}JointKey_COUNT];\n`;
+        out += `} ${prefix}frames[] = {\n`;
         for (const frame of frames) {
-          out += '  { .joint_pos = { \n';
+          out += '  { .time = ${frame.time}, .joint_pos = { \n';
           for (const key in frame.bones) {
             const { x, y, z } = frame.bones[key];
             let key_clause = `${prefix}JointKey_${key}`;
             key_clause = key_clause.padEnd(`${prefix}JointKey_`.length + longest_joint_name_len);
-            out += `    [${key_clause}] = { ${frame.time}, { ${x}, ${y}, ${z} } },\n`
+            out += `    [${key_clause}] = { ${x}, ${y}, ${z} },\n`
           }
           out += '  }},\n';
         }

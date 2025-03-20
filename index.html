@@ -207,6 +207,7 @@ document, body { margin: 0px; padding: 0px; overflow: hidden; }
           <div id="codegen_flavor_specific_settings"></div>
           <div>
             <button id="codegen_copy" title="copy codegen output" style="position:absolute;right:0.5rem;">📋</button>
+            <pre id="codegen_size"></pre>
             <pre id="codegen_out"></pre>
           </div>
         </div id="tab_codegen_body">
@@ -225,7 +226,7 @@ document, body { margin: 0px; padding: 0px; overflow: hidden; }
 
         <div id="tab_options_body" class="tab_body">
           <button id="options_reset_to_default"> reset everything to defaults </button>
-          <p> The following blender export script gives you a JSON you can drag and drop onto this tool. </p>
+          <p> The following blender export script gives you a JSON similar to the output of this tool. </p>
           <pre># blender export script
 import bpy
 import json     
@@ -239,26 +240,26 @@ def write_bone_positions(armature, output_file=None):
       return
 
     for bone in armature.pose.bones:
-    if len(bone.children) > 0:
-    for child_bone in bone.children:
-    bone_connections.append([bone.name, child_bone.name])
+        if len(bone.children) > 0:
+            for child_bone in bone.children:
+                bone_connections.append([bone.name, child_bone.name])
 
     start_frame = bpy.context.scene.frame_start
     end_frame = bpy.context.scene.frame_end
     for frame in range(start_frame, end_frame):
-    bpy.context.scene.frame_set(frame)
+        bpy.context.scene.frame_set(frame)
 
-    bone_poses = {}
+        bone_poses = {}
 
-    for bone in armature.pose.bones:
-        # Get the location of the bone in world space
-        p = armature.matrix_world @ bone.head
-        bone_poses[str(bone.name)] = { 'x': p.x, 'y': p.y, 'z': p.z }
+        for bone in armature.pose.bones:
+            # Get the location of the bone in world space
+            p = armature.matrix_world @ bone.head
+            bone_poses[str(bone.name)] = { 'x': p.x, 'y': p.y, 'z': p.z }
 
-        frames.append(bone_poses)
+            frames.append(bone_poses)
 
-     with open("./bone_frames.json", "w+") as fp:
-         json.dump({ 'frames': frames, 'connections': bone_connections }, fp)
+         with open("./bone_frames.json", "w+") as fp:
+             json.dump({ 'frames': frames, 'connections': bone_connections }, fp)
 
 write_bone_positions(bpy.context.object)</pre>
         </div id="tab_options_body">
@@ -269,7 +270,18 @@ write_bone_positions(bpy.context.object)</pre>
           <button id="scrubber_next">next frame ➡️ </button>
         </div>
       </div>
+
     </div>
+
+      <div style="position:absolute; top:0px; left:0px; margin: 0.2rem">
+          <select id="anim_variant">
+            <option>Hip Hop Dancing.fbx</option>
+            <option>Roar.fbx</option>
+            <option>Standing 2H Magic Attack 01.fbx</option>
+            <option>Standing Melee Attack Downward.fbx</option>
+            <option>Walking.fbx</option>
+          </select>
+      </div>
 
     <script type="importmap">
       {
@@ -286,12 +298,21 @@ write_bone_positions(bpy.context.object)</pre>
 import * as THREE from 'three';
 import { FBXLoader } from 'three/addons/loaders/FBXLoader.js';
 
-fetch("Hip Hop Dancing.fbx")
-  .then(x => x.arrayBuffer())
-  .then(bytes => {
-    anim_data = fbx_to_lines(bytes)
-    tweak_ui.render_ui();
-  });
+let set_anim = str => {
+  fetch(str)
+    .then(x => x.arrayBuffer())
+    .then(bytes => {
+      anim_data = fbx_to_lines(bytes)
+      tweak_ui.render_ui();
+      anim_variant.toggleAttribute("disabled", false);
+    });
+}
+set_anim("Hip Hop Dancing.fbx");
+
+anim_variant.onchange = () => {
+  anim_variant.toggleAttribute("disabled", true);
+  set_anim(anim_variant.value);
+}
 
 window.ondragover = ev => ev.preventDefault();
 window.ondrop = async ev => {
@@ -317,32 +338,22 @@ function fbx_to_lines(fbx) {
 
   const anim = model.animations[0];
 
-  /* look at animation and find fps */
-  let fps, anim_times;
+  /* look at animation and find frame times */
+  let frame_times;
   {
-      anim_times = new Set();
+      const frame_set = new Set();
 
       for (const track of anim.tracks) {
           for (const time of track.times) {
-              anim_times.add(time);
+              frame_set.add(time);
           }
       }
 
-      console.assert(anim_times.has(0), 'expected 0 to be timestamp present in animation');
-      console.assert(anim_times.has(anim.duration), `expected ${anim.duration} to be timestamp present in animation`);
-      anim_times.delete(anim.duration);
+      console.assert(frame_set.has(0), 'expected 0 to be timestamp present in animation');
+      console.assert(frame_set.has(anim.duration), `expected ${anim.duration} to be timestamp present in animation`);
+      frame_set.delete(anim.duration);
 
-      anim_times = [...anim_times].sort((a, b) => a - b);
-
-      /* check that the frames in the animation are more or less evenly spaced */
-      {
-        const times = [...anim_times];
-        const approx_eq = (a, b) => Math.abs(a - b) < 0.0001;
-        if (!times.slice(1).reduce((a, x, i) => (a > 0) ? approx_eq(a, x - times.at(i)) : x - times.at(i), 0))
-          alert("frames in animation not evenly spaced 🤔");
-      }
-
-      fps = anim_times.length / anim.duration;
+      frame_times = [...frame_set].sort((a, b) => a - b);
   }
 
 
@@ -378,10 +389,10 @@ function fbx_to_lines(fbx) {
 
     let strip = ({ x, y, z }) => ({ x, y, z });
 
-    for (const time of anim_times) {
+    for (const time of frame_times) {
       mixer.setTime(time);
 
-      const frame = {};
+      const bones = {};
       const bones_seen = new Set();
       for (const bone of skeleton.bones) {
         if (bones_seen.has(bone.ID)) continue;
@@ -389,27 +400,26 @@ function fbx_to_lines(fbx) {
 
         const p = bone.position.clone();
         bone.getWorldPosition(p);
-        frame[bone.name] = strip(p.applyMatrix4(scale));
+        bones[bone.name] = strip(p.applyMatrix4(scale));
       }
-      frames.push(frame);
+      frames.push({ time, bones });
     }
   }
 
-  return { fps, duration: anim.duration, connections, frames };
+  return { duration: anim.duration, connections, frames };
 };
 
-const ANIMATION_FPS = 24;
 let anim_data = null;
 
 const tweak_ui = new (class TweakUI {
-  static LOCALSTORAGE_KEY = "guy_tweak_ui";
+  static LOCALSTORAGE_KEY = "guy_tweak_ui_2";
 
   static default_save() {
     return {
       active_tab: 'intro',
       codegen_flavor: 'json',
       codegen_c_prefix: 'animdata_',
-      codegen_joint_prefix_from: 'mixamorig:',
+      codegen_joint_prefix_from: 'mixamorig',
       codegen_joint_prefix_to  : '',
 
       ignored_joints: [
@@ -440,7 +450,6 @@ const tweak_ui = new (class TweakUI {
       playing: true,
       animation_elapsed: 0,
 
-      leg_torso_ratio: 2.2,
       line_width:      1.5,
       char_height:     1,
       char_width:      1,
@@ -484,23 +493,22 @@ const tweak_ui = new (class TweakUI {
         scrubber_playpause.textContent = save.playing ? "⏸️" : "▶️";
         this.do_save();
       }
-      const change_offset = delta => {
-        const seconds_per_frame = 1 / ANIMATION_FPS;
+      // const change_offset = delta => {
+      //   const seconds_per_frame = 1 / ANIMATION_FPS;
 
-        save.animation_elapsed = Math.round(save.animation_elapsed / seconds_per_frame) * seconds_per_frame;
-        save.animation_elapsed += delta * seconds_per_frame;
-        while (save.animation_elapsed < 0)
-          save.animation_elapsed = seconds_per_frame * anim_data.frames.length - save.animation_elapsed;
+      //   save.animation_elapsed = Math.round(save.animation_elapsed / seconds_per_frame) * seconds_per_frame;
+      //   save.animation_elapsed += delta * seconds_per_frame;
+      //   while (save.animation_elapsed < 0)
+      //     save.animation_elapsed = seconds_per_frame * anim_data.frames.length - save.animation_elapsed;
 
-        this.do_save();
-      }
+      //   this.do_save();
+      // }
       scrubber_next.onclick = () => change_offset( 1);
       scrubber_prev.onclick = () => change_offset(-1);
     }
 
     /* float inputs */
     for (const [el, field] of [
-       [hud_leg_to_torso,  'leg_torso_ratio' ],
        [hud_line_width,    'line_width'      ],
        [hud_head_size,     'head_size'       ],
        [hud_char_height,   'char_height'     ],
@@ -518,7 +526,7 @@ const tweak_ui = new (class TweakUI {
       tab_simplify_added_connections.innerHTML = '';
       tab_simplify_ignored_joints.innerHTML = '';
 
-      for (const [idx, joint] of Object.entries(Object.keys(anim_data.frames[0]))) {
+      for (const [idx, joint] of Object.entries(Object.keys(anim_data.frames[0].bones))) {
         const div = document.createElement('div');
         div.className = 'labeled_input';
 
@@ -557,7 +565,7 @@ const tweak_ui = new (class TweakUI {
 
         const from_select = document.createElement('select');
         const to_select = document.createElement('select');
-        for (const k in anim_data.frames[0]) if (!save.ignored_joints.includes(k)) {
+        for (const k in anim_data.frames[0].bones) if (!save.ignored_joints.includes(k)) {
           for (const select of [from_select, to_select]) {
             const o = document.createElement('option');
             o.textContent = k;
@@ -621,15 +629,18 @@ const tweak_ui = new (class TweakUI {
       const connections = [...save.added_connections, ...anim_data.connections]
         .filter(([l, r]) => !ignored(l) && !ignored(r))
         .map(([l, r]) => [apply_replace(l), apply_replace(r)]);
-      const frames = anim_data.frames.map(f => Object.fromEntries(
-        Object
-          .entries(f)
-          .filter(([k, v]) => !ignored(k))
-          .map(([k, v]) => [apply_replace(k), v])
-      ));
+      const frames = anim_data.frames.map(f => ({
+        ...f,
+        bones: Object.fromEntries(
+          Object
+            .entries(f.bones)
+            .filter(([k, v]) => !ignored(k))
+            .map(([k, v]) => [apply_replace(k), v])
+        )
+      }));
 
       if (flavor == 'json')
-        codegen_out.textContent = JSON.stringify({ fps: 24, connections, frames }, null, 2);
+        codegen_out.textContent = JSON.stringify({ connections, frames }, null, 2);
       if (flavor == 'C') {
 
         /* add prefix input */
@@ -657,14 +668,14 @@ const tweak_ui = new (class TweakUI {
         const prefix = save.codegen_c_prefix;
         let out = '';
         out += `typedef enum ${prefix}JointKey {\n`;
-        for (const key in frames[0]) out += `  ${prefix}JointKey_${key},\n`;
+        for (const key in frames[0].bones) out += `  ${prefix}JointKey_${key},\n`;
         out += `  ${prefix}JointKey_COUNT\n`;
         out += `} ${prefix}JointKey_t;\n`;
 
         out += '\n';
 
         out += `struct { ${prefix}JointKey_t from, to; } ${prefix}limb_connections[] = {\n`;
-        const longest_joint_name_len = Object.keys(frames[0]).reduce((a, x) => Math.max(a, x.length), 0);
+        const longest_joint_name_len = Object.keys(frames[0].bones).reduce((a, x) => Math.max(a, x.length), 0);
         for (const [from, to] of connections) {
           let from_clause = `${prefix}JointKey_${from},`;
           let to_clause = `${prefix}JointKey_${to}`;
@@ -678,20 +689,34 @@ const tweak_ui = new (class TweakUI {
 
         out += '\n';
 
-        out += `struct { struct { float x, y, z; } joint_pos[${prefix}JointKey_COUNT]; } ${prefix}frames[] = {\n`;
+        out += `float ${prefix}duration = ${anim_data.duration};\n`;
+        out += `struct {`;
+        out += `\n    struct {`;
+        out += `\n        float time;`;
+        out += `\n        struct { float x, y, z; } pos;`;
+        out += `\n    } joint_pos[${prefix}JointKey_COUNT];`;
+        out += `\n} ${prefix}frames[] = {\n`;
         for (const frame of frames) {
           out += '  { .joint_pos = { \n';
-          for (const key in frame) {
-            const { x, y, z } = frame[key];
+          for (const key in frame.bones) {
+            const { x, y, z } = frame.bones[key];
             let key_clause = `${prefix}JointKey_${key}`;
             key_clause = key_clause.padEnd(`${prefix}JointKey_`.length + longest_joint_name_len);
-            out += `    [${key_clause}] = { ${x}, ${y}, ${z} },\n`
+            out += `    [${key_clause}] = { ${frame.time}, { ${x}, ${y}, ${z} } },\n`
           }
           out += '  }},\n';
         }
         out += `};`;
 
         codegen_out.textContent = out;
+      }
+
+      /* show codegen size */
+      {
+        const out = codegen_out.textContent;
+        codegen_size.textContent = out.length + ' bytes';
+        if (out.length >> 10) codegen_size.textContent = (out.length >> 10) + ' KiB';
+        if (out.length >> 20) codegen_size.textContent = (out.length >> 20) + ' MiB';
       }
 
       codegen_flavor.value = save.codegen_flavor;
@@ -944,18 +969,20 @@ requestAnimationFrame(function render(timestamp) {
   if (anim_data) {
     ctx.beginPath();
 
-    const seconds_per_frame = 1 / ANIMATION_FPS;
-
     if (tweak_ui.save.playing) tweak_ui.save.animation_elapsed += delta_time;
+    const t = tweak_ui.save.animation_elapsed % anim_data.duration;
+    const frames = anim_data.frames;
 
-    const frames_total = tweak_ui.save.animation_elapsed / seconds_per_frame;
-    const frame_idx = Math.floor(frames_total % anim_data.frames.length);
-    const tween_t = frames_total % 1;
-    const next_idx = (frame_idx + 1) % anim_data.frames.length;
+    let frame_idx = frames.findIndex(x => x.time > t);
+    const last_frame = frame_idx == -1;
+    frame_idx = (last_frame ? frames.length : frame_idx) - 1;
+    const next_idx = (frame_idx + 1) % frames.length;
+    const next_frame_t = last_frame ? anim_data.duration : frames[next_idx].time;
+    const tween_t = (t - frames[frame_idx].time) / (next_frame_t - frames[frame_idx].time);
     const frame = key => ({
-      x: lerp(anim_data.frames[frame_idx][key].x, anim_data.frames[next_idx][key].x, tween_t),
-      y: lerp(anim_data.frames[frame_idx][key].y, anim_data.frames[next_idx][key].y, tween_t),
-      z: lerp(anim_data.frames[frame_idx][key].z, anim_data.frames[next_idx][key].z, tween_t)
+      x: lerp(frames[frame_idx].bones[key].x, frames[next_idx].bones[key].x, tween_t),
+      y: lerp(frames[frame_idx].bones[key].y, frames[next_idx].bones[key].y, tween_t),
+      z: lerp(frames[frame_idx].bones[key].z, frames[next_idx].bones[key].z, tween_t)
     });
 
 
@@ -1007,7 +1034,7 @@ requestAnimationFrame(function render(timestamp) {
     for (const [from_key, to_key] of tweak_ui.save.added_connections) draw_connection(from_key, to_key);
 
     /* show vertices */
-    for (const key in anim_data.frames[0]) {
+    for (const key in anim_data.frames[0].bones) {
       const p = frame(key);
       const point = new DOMPoint(p.x, p.y, p.z, 1.0);
       const screen = transform(point);

@@ -4,7 +4,7 @@
 <html lang="en">
   <head>
     <meta charset="utf-8" />
-    <title>Canvas Demo</title>
+    <title>guy.html</title>
     <style>
 document, body { margin: 0px; padding: 0px; overflow: hidden; }
 .hud {
@@ -697,7 +697,7 @@ const tweak_ui = new (class TweakUI {
         out += `    } joint_pos[${prefix}JointKey_COUNT];\n`;
         out += `} ${prefix}frames[] = {\n`;
         for (const frame of frames) {
-          out += '  { .time = ${frame.time}, .joint_pos = { \n';
+          out += `  { .time = ${frame.time}, .joint_pos = {\n`;
           for (const key in frame.bones) {
             const { x, y, z } = frame.bones[key];
             let key_clause = `${prefix}JointKey_${key}`;

@@ -749,7 +749,7 @@ const tweak_ui = new (class TweakUI {
         if (text_nbytes >> 20) text_size = (text_nbytes >> 20) + ' MiB';
 
         let data_nbytes = frames.length * Object.values(frames[0].bones).length * 3 * 4;
-        let data_size = data_nbytes + 'bytes';
+        let data_size = data_nbytes + ' bytes';
         if (data_nbytes >> 10) data_size = (data_nbytes >> 10) + ' KiB';
         if (data_nbytes >> 20) data_size = (data_nbytes >> 20) + ' MiB';
 

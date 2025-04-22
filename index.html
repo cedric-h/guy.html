@@ -419,6 +419,7 @@ const tweak_ui = new (class TweakUI {
       active_tab: 'intro',
       codegen_flavor: 'json',
       codegen_c_prefix: 'animdata_',
+      codegen_c_preamble: true,
       codegen_joint_prefix_from: 'mixamorig',
       codegen_joint_prefix_to  : '',
 
@@ -615,7 +616,7 @@ const tweak_ui = new (class TweakUI {
       }
     }
 
-    function render_codegen_tab() {
+    function render_codegen_tab(render_flavor_specific=true) {
       const ignored = k => save.ignored_joints.includes(k);
       const flavor = save.codegen_flavor;
 
@@ -624,7 +625,7 @@ const tweak_ui = new (class TweakUI {
       const apply_replace = key => key.replace(codegen_joint_prefix_from.value, codegen_joint_prefix_to.value);
 
       codegen_out.textContent = '...';
-      codegen_flavor_specific_settings.innerHTML = '';
+      if (render_flavor_specific) codegen_flavor_specific_settings.innerHTML = '';
 
       const connections = [...save.added_connections, ...anim_data.connections]
         .filter(([l, r]) => !ignored(l) && !ignored(r))
@@ -644,7 +645,7 @@ const tweak_ui = new (class TweakUI {
       if (flavor == 'C') {
 
         /* add prefix input */
-        {
+        if (render_flavor_specific) {
           const label = document.createElement('label');
           const input = document.createElement('input');
           input.id = label.for = 'codegen_c_prefix_input';
@@ -660,42 +661,69 @@ const tweak_ui = new (class TweakUI {
 
           input.oninput = () => {
             save.codegen_c_prefix = input.value;
-            this.do_save();
-            render_codegen_tab();
+            that.do_save();
+            render_codegen_tab(false);
+          }
+        }
+
+        /* add preamble checkbox */
+        if (render_flavor_specific) {
+          const label = document.createElement('label');
+          const input = document.createElement('input');
+          input.id = label.for = 'codegen_c_preamble_checkbox';
+          input.type = 'checkbox';
+          input.checked = save.codegen_c_preamble;
+          input.style.fontFamily = 'monospace';
+          label.textContent = 'preamble';
+
+          const div = document.createElement('div');
+          div.className = 'labeled_input';
+          div.append(label, input);
+          codegen_flavor_specific_settings.append(div);
+
+          input.onchange = () => {
+            save.codegen_c_preamble = input.checked;
+            that.do_save();
+            render_codegen_tab(false);
           }
         }
 
         const prefix = save.codegen_c_prefix;
-        let out = '';
-        out += `typedef enum ${prefix}JointKey {\n`;
-        for (const key in frames[0].bones) out += `  ${prefix}JointKey_${key},\n`;
-        out += `  ${prefix}JointKey_COUNT\n`;
-        out += `} ${prefix}JointKey_t;\n`;
-
-        out += '\n';
-
-        out += `struct { ${prefix}JointKey_t from, to; } ${prefix}limb_connections[] = {\n`;
         const longest_joint_name_len = Object.keys(frames[0].bones).reduce((a, x) => Math.max(a, x.length), 0);
-        for (const [from, to] of connections) {
-          let from_clause = `${prefix}JointKey_${from},`;
-          let to_clause = `${prefix}JointKey_${to}`;
+        let out = '';
 
-          from_clause = from_clause.padEnd(`${prefix}JointKey_,`.length + longest_joint_name_len);
-            to_clause =   to_clause.padEnd(`${prefix}JointKey_` .length + longest_joint_name_len);
+        if (save.codegen_c_preamble) {
+          out += `typedef enum ${prefix}JointKey {\n`;
+          for (const key in frames[0].bones) out += `  ${prefix}JointKey_${key},\n`;
+          out += `  ${prefix}JointKey_COUNT\n`;
+          out += `} ${prefix}JointKey_t;\n`;
 
-          out += `  { .from = ${from_clause} .to = ${to_clause} },\n`;
+          out += '\n';
+
+          out += `struct { ${prefix}JointKey_t from, to; } ${prefix}limb_connections[] = {\n`;
+          for (const [from, to] of connections) {
+            let from_clause = `${prefix}JointKey_${from},`;
+            let to_clause = `${prefix}JointKey_${to}`;
+
+            from_clause = from_clause.padEnd(`${prefix}JointKey_,`.length + longest_joint_name_len);
+              to_clause =   to_clause.padEnd(`${prefix}JointKey_` .length + longest_joint_name_len);
+
+            out += `  { .from = ${from_clause} .to = ${to_clause} },\n`;
+          }
+          out += '};\n';
+
+          out += '\n';
+
+          out += 'typedef struct {\n';
+          out += '    float time;\n';
+          out += `    struct { float x, y, z; } joint_pos[${prefix}JointKey_COUNT];\n`;
+          out += `} ${prefix}Frame;\n`;
+
+          out += '\n';
         }
-        out += '};\n';
-
-        out += '\n';
 
         out += `float ${prefix}duration = ${anim_data.duration};\n`;
-        out += `struct {\n`;
-        out += `    float time;\n`;
-        out += `    struct {\n`;
-        out += `        float x, y, z;\n`;
-        out += `    } joint_pos[${prefix}JointKey_COUNT];\n`;
-        out += `} ${prefix}frames[] = {\n`;
+        out += `${prefix}Frame ${prefix}frames[] = {\n`;
         for (const frame of frames) {
           out += `  { .time = ${frame.time}, .joint_pos = {\n`;
           for (const key in frame.bones) {
@@ -714,9 +742,18 @@ const tweak_ui = new (class TweakUI {
       /* show codegen size */
       {
         const out = codegen_out.textContent;
-        codegen_size.textContent = out.length + ' bytes';
-        if (out.length >> 10) codegen_size.textContent = (out.length >> 10) + ' KiB';
-        if (out.length >> 20) codegen_size.textContent = (out.length >> 20) + ' MiB';
+
+        let text_nbytes = out.length;
+        let text_size = out.length + ' bytes';
+        if (text_nbytes >> 10) text_size = (text_nbytes >> 10) + ' KiB';
+        if (text_nbytes >> 20) text_size = (text_nbytes >> 20) + ' MiB';
+
+        let data_nbytes = frames.length * Object.values(frames[0].bones).length * 3 * 4;
+        let data_size = data_nbytes + 'bytes';
+        if (data_nbytes >> 10) data_size = (data_nbytes >> 10) + ' KiB';
+        if (data_nbytes >> 20) data_size = (data_nbytes >> 20) + ' MiB';
+
+        codegen_size.textContent = text_size + ' of text, ~' + data_size + ' of data';
       }
 
       codegen_flavor.value = save.codegen_flavor;
